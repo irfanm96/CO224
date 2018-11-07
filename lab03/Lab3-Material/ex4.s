@@ -8,28 +8,28 @@
 @ ---------------------	
  fact:
 sub sp,sp,#8 // space for two items
-str lr,[sp,#4]
-str r0, [sp,#0]
+str lr,[sp,#4] //  save the link register address
+str r0, [sp,#0] // save r0
 
 
-cmp r0,#1
-bge l1
+cmp r0,#1  // compare r0,#1
+bge branch1 // if r0>1 go to branch 1
 
-mov r0,#1
-add sp,sp,#8
-mov pc,lr
+mov r0,#1 // base case
+add sp,sp,#8 // undo the stack pointer
+mov pc,lr // go to the previous call
 
-l1 :
- sub r0,r0,#1
- bl fact
+branch1 :
+ sub r0,r0,#1 // substract 1 from r0
+ bl fact // recursive call
 
 mov r1,r0
-ldr r0,[sp,#0]
-ldr lr,[sp,#4]
-add sp,sp,#8
+ldr r0,[sp,#0] // load the r0 from stack
+ldr lr,[sp,#4] // load link register from stack
+add sp,sp,#8 // reset the stack pointer
 
-mul r0,r1,r0
-mov pc,lr
+mul r0,r1,r0 // multiply old r0, new r0
+mov pc,lr // move to the previous call 
 @ ---------------------	
 
 .global main	
