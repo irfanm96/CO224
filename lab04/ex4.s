@@ -9,17 +9,18 @@ main:
 	ldr r0,=formatinput // load the print format 
         bl printf // print
         
-	sub sp, sp, #4 // get space for the string
+	sub sp, sp, #4 // get space for number of strings
 	mov r1,sp
 
 	ldr	r0, =formatinputnumber
 	bl scanf // call scanf
 	
-        ldr r8,[sp,#0]
+        ldr r8,[sp,#0] // number of strings
  	add sp,sp,#4	
 	sub sp, sp, #100 // get space for the string
 	mov r5, sp // move the address to r5
 
+/// to avoid the newline
 	sub sp, sp, #1 // get space for the string
 	mov r1,sp
 	ldr	r0, =formats
@@ -31,11 +32,19 @@ main:
 
 
  
-	
+	mov r9,#0 
 mainloop: cmp r8,#0
+           add r9,r9,#1
           beq exit
-           
+          
+        
 scan:	
+
+         
+	ldr r0,=formatstringno // load the print format
+         mov r1,r9   
+        bl printf // print
+        
         mov r7,#0 // string length
 	loop: // scan chars
 	ldr	r0, =formats
@@ -49,7 +58,7 @@ scan:
 	b loop // loop again
 
 
-	return:
+	return: 
 	loop2: cmp r7,#1 // check the first charcter 
         beq exit1 // if all charcters printed ,go to exit
 	sub r5,r5,#1 // move stack downwords
@@ -62,7 +71,7 @@ scan:
     exit1:
 		ldr r0,=check // load the print format 
         bl printf // print
-        
+        	
 		sub r8,r8,#1
         b mainloop
   
@@ -84,4 +93,7 @@ formatinputnumber: .asciz "%d"
 check: .asciz "\n"
 invalidp: .asciz "invalid Input\n"
 formatinput: .asciz "enter number of strings:"
+
+formatstringno: .asciz "enter the input string %d:"
+
 
