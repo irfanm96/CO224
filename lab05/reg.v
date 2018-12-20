@@ -85,22 +85,21 @@ wire [7:0] OUT1,OUT2;
  
 initial begin
 
-#5//T=5
 	IN = 12;
 	INaddr = 5;
 	OUT1addr = 5;
 	OUT2addr = 3;
 
-#10//T=15								//T=10
-	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);
-#20//T=35								//T=10
-	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);								//T=40
+#10							
+	$display("OUT1addr=>%d OUT1 = %d OUT2addr=>%d OUT2 = %d ,time=%b",OUT1addr,OUT1,OUT2addr,OUT2,clk);
+#10							
+	$display("OUT1addr=>%d OUT1 = %d OUT2addr=>%d OUT2 = %d time=%b",OUT1addr,OUT1,OUT2addr,OUT2,clk);								
 	IN = 7;
 	INaddr = 3;
-#10//T=45
-	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);		
 #10
-	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);		
+	$display("OUT1addr=>%d OUT1 = %d OUT2addr=>%d OUT2 = %d time=%b",OUT1addr,OUT1,OUT2addr,OUT2,clk);		
+#10
+	$display("OUT1addr=>%d OUT1 = %d OUT2addr=>%d OUT2 = %d time=%b",OUT1addr,OUT1,OUT2addr,OUT2,clk);		
 
 $finish;
 
