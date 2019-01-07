@@ -14,8 +14,8 @@ module regfile ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2);
 	reg [7:0] reg7 =0;
 	reg [7:0] reg8 =0;
 	reg [7:0] res1;
-	assign OUT1=res1;
 	reg [7:0] res2;
+	assign OUT1=res1;
 	assign OUT2=res2;
 	
 	
@@ -91,15 +91,15 @@ initial begin
 	OUT2addr = 3;
 
 #10							
-	$display("OUT1addr=>%d OUT1 = %d OUT2addr=>%d OUT2 = %d ,time=%b",OUT1addr,OUT1,OUT2addr,OUT2,clk);
+	$display("OUT1addr=>%d OUT1 = %d OUT2addr=>%d OUT2 = %d ",OUT1addr,OUT1,OUT2addr,OUT2);
 #10							
-	$display("OUT1addr=>%d OUT1 = %d OUT2addr=>%d OUT2 = %d time=%b",OUT1addr,OUT1,OUT2addr,OUT2,clk);								
+	$display("OUT1addr=>%d OUT1 = %d OUT2addr=>%d OUT2 = %d",OUT1addr,OUT1,OUT2addr,OUT2);								
 	IN = 7;
 	INaddr = 3;
 #10
-	$display("OUT1addr=>%d OUT1 = %d OUT2addr=>%d OUT2 = %d time=%b",OUT1addr,OUT1,OUT2addr,OUT2,clk);		
+	$display("OUT1addr=>%d OUT1 = %d OUT2addr=>%d OUT2 = %d ",OUT1addr,OUT1,OUT2addr,OUT2);		
 #10
-	$display("OUT1addr=>%d OUT1 = %d OUT2addr=>%d OUT2 = %d time=%b",OUT1addr,OUT1,OUT2addr,OUT2,clk);		
+	$display("OUT1addr=>%d OUT1 = %d OUT2addr=>%d OUT2 = %d ",OUT1addr,OUT1,OUT2addr,OUT2);		
 
 $finish;
 
