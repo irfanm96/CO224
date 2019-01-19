@@ -184,17 +184,17 @@ input           clk;
 input           rst;
 input           read;
 input           write;
-input[7:0]      address;
-input[7:0]      write_data;
-output[7:0]     read_data;
+input[6:0]      address; //7 bit address
+input[15:0]      write_data; // 16 bit write data
+output[15:0]     read_data;// 16 bit read data
 output			busy_wait;
 
-reg[7:0]     read_data;
+reg[15:0]     read_data;
 reg busy_wait=1'b0;
 integer  i;
 
 // Declare memory 256x8 bits 
-reg [7:0] memory_array [255:0];
+reg [15:0] memory_array [255:0];
 //reg [7:0] memory_ram_q [255:0];
 
 always @(posedge rst)
@@ -232,6 +232,193 @@ end
  
 endmodule
 
+module cache(clk,rst,read,write,address,write_data,read_data,busy_wait);
+input           clk;
+input           rst;
+input           read;
+input           write;
+input[7:0]      address;
+input[7:0]      write_data;
+output[7:0]     read_data;
+output			busy_wait;
+
+reg[7:0]     read_data;
+reg busy_wait=1'b0;
+wire busy_wait_w;
+assign busy_wait_w=busy_wait;
+integer  i;
+
+// Declare memory 256x8 bits 
+reg [21:0] memory_array [255:0];
+//reg [7:0] memory_ram_q [255:0];
+reg [21:0] cacheRow;
+
+reg hit;
+wire match;
+wire [7:0] requiredBlock;
+wire [7:0] memWriteVal;
+reg [6:0] address_mem;
+reg [15:0] write_data_mem;
+wire [15:0] read_data_mem;
+
+reg read_mem=0;
+reg write_mem=0;
+
+
+comparator my(cacheRow[19:16],address[4:1],match);
+fetchBlock fetch(cacheRow[15:0],address[0],requiredBlock);
+//  data_mem(clk,rst,read,write,address,write_data,read_data,busy_wait);	
+  data_mem mem(clk,rst,read_mem,write_mem,address_mem,write_data_mem,read_data_mem,busy_wait_w);	
+
+
+
+
+always @(posedge rst)
+begin
+    if (rst)
+    begin
+        for (i=0;i<256; i=i+1)
+            memory_array[i] <= 24'b1011110101010101010101;
+    end
+end
+
+always @( read, write, address, write_data,match)
+begin
+cacheRow = memory_array[address[7:5]]; // get the cache row in the cache
+   
+   hit= match && cacheRow[21]; // decide the hit (compare && valid bit) 
+	busy_wait <= 0;
+	//write
+    if (write && !read)	
+	begin
+    
+		if(hit)
+	 	 begin  
+	  		//should write to cache
+       		cacheRow[20]<=1;	//set the dirty bit to one
+			//write to cache block	
+			if(address[0]==0)
+			begin
+				cacheRow[7:0]<=write_data;
+			end
+			else
+			begin
+				cacheRow[15:8]<=write_data;
+			end
+
+		end
+	else 
+	begin
+     //its a miss for write
+
+	//do when its a miss  in a write
+	 	//   address_mem<=address[7:1];
+	    //  cacheRow[24:22]=address[7:5];// new index
+		//  cacheRow[19:16]<=address[4:1]; // new tag
+	    //  write_mem<=1; // write to cache
+
+
+			if(address[0]==0)
+			begin
+				cacheRow[7:0]<=write_data;
+			end
+			else
+			begin
+				cacheRow[15:8]<=write_data;
+			end
+
+
+	end
+
+	end
+
+
+
+
+    if (!write && read ) //read
+	
+	begin
+
+	if(hit) // hit when a read
+     begin
+       
+	 assign read_data = requiredBlock; // if its a hit and required block is sent out 
+     end
+
+	else
+	begin
+	//do when its a miss  in a read
+		//  cacheRow[21]=1;//set valid bit	
+	    //  cacheRow[24:22]=address[7:5];// new index 
+		//  cacheRow[19:16]<=address[4:1]; // new tag
+	     
+		//   if(cacheRow[20]==0) // block is not dirty so throw out the block
+		//   begin
+	 	//   address_mem<=address[7:1];// address for main memory
+	    //  read_mem<=1; // enable write
+		//  cacheRow[15:0] = read_data_mem; // new data
+		//   end
+
+		//   else // block is dirty so wrte back to memory
+
+		//   begin
+
+		//    write_data_mem=cacheRow[15:0]; //write back to main memory
+		//    write_mem=1; // write to memory
+		//  //have to fetch agin from memory
+		//   end
+
+	end	
+	end
+
+end
+ 
+endmodule
+
+
+
+module comparator(cacheTag,insTag,match);
+input  [3:0] cacheTag;
+input  [3:0] insTag;
+output reg  match;
+
+always @(cacheTag) begin
+if(cacheTag ^ insTag ==4'b0000 )
+ begin
+ assign match=1'b1;
+//  $display("ctag, %b ,instTag %b , match %b",cacheTag,insTag,match);
+end
+
+else
+begin
+ assign match=1'b0;
+//  $display("tags are not matching");
+end 
+end
+
+endmodule
+
+module fetchBlock(data,offset,out);
+input  [15:0] data;
+input offset;
+output  [7:0] out;
+reg [7:0] block;
+
+assign out=block;
+
+
+always @(data) begin
+if(offset==0)
+  begin  
+   block=data[7:0];
+ end
+ else begin
+	 block=data[15:8];
+ end
+//  $display("block= %b" ,block);
+
+end
+endmodule
 
 module processor(clk,finalOut,rst,INS);
 
@@ -266,15 +453,84 @@ module processor(clk,finalOut,rst,INS);
 
 
 //  data_mem(clk,rst,read,write,address,write_data,read_data,busy_wait);	
-	data_mem mem(clk,rst,read,write,DATA_ADDR,RESULT,read_data,busy_wait);
+	cache cacheMem(clk,rst,read,write,DATA_ADDR,RESULT,read_data,busy_wait);
 endmodule
 
 
+// module testDM;
+// 	reg [31:0] INS;
+// 	wire [7:0] Result;
+// 	reg clk,rst;
+// 	processor simpleP(clk,Result, rst,INS);
+
+// 	initial begin
+// 		clk = 0;
+// 		forever #10 clk = ~clk;
+// 	end
+
+// 	initial begin
+// 		$display("\nPrinting The results of MUX that is before register file( output from ALU OR DM )\n");
+// 		rst = 0;
+// 		#20
+// 		rst = 1;
+// 		#20
+// 		rst = 0;
+// 		#20
+// 		INS = 32'b0000000000000110xxxxxxxx00101101;//loadi r6,X,45
+// 		$display("loadi 6,X,45");
+// 		#20
+// 		$display("After 1 CC	%b | %d\n",Result,Result);
+// 		INS = 32'b0000000000000011xxxxxxxx01000001;//loadi r3,X,65
+// 		$display("loadi 6,X,45");
+// 		#20
+// 		$display("After 1 CC	%b | %d\n",Result,Result);
+// 		INS = 32'b0000010100011001xxxxxxxx00000110;//store 25,X,r6
+// 		$display("store 25,X,6");
+// 		#2000
+// 		$display("After 100 CC	%b | %d\n",Result,Result);
+// 		INS = 32'b0000010100010000xxxxxxxx00000011;//store 16,X,r3
+// 		$display("store 16,X,3");
+// 		#2000
+// 		$display("After 100 CC	%b | %d\n",Result,Result );
+// 		INS = 32'b0000010000000111xxxxxxxx00011001;//load r7,X,25
+// 		$display("load 7,X,25");
+// 		#20
+// 		$display("After 1 CC	%b | %d",Result,Result);
+// 	 	#180
+// 		$display("After 10 CC	%b | %d",Result,Result);
+// 	 	#800
+// 		$display("After 50 CC	%b | %d",Result,Result);
+// 	 	#1000
+// 		$display("After 100 CC	%b | %d\n",Result,Result);
+// 	 	INS = 32'b0000010000001000xxxxxxxx00010000;//load r8,X,25
+// 		$display("load 8,X,25");
+// 		#20
+// 		$display("After 1 CC	%b | %d  (Should be 65, new value not loaded. need 100CC)",Result,Result);
+// 		#1980	
+// 		$display("After 100 CC	%b | %d\n",Result,Result);
+// 		INS = 32'b00000001000001010000011100001000;//add 5,7,8
+// 		$display("add 5,7,8");
+// 		#20
+// 		$display("After 1 CC	%b | %d\n",Result,Result);
+// 		INS = 32'b00001001000001010000100000000111;//sub 4,8,7
+// 		$display("sub 4,8,7");
+// 		#20
+// 		$display("After 1 CC	%b | %d\n",Result,Result);
+		
+// 		$finish;
+// 	end
+
+// endmodule
 module testDM;
 	reg [31:0] INS;
-	wire [7:0] Result;
+	reg read,write;
+	reg [7:0] DATA_ADDR;
+	reg [7:0] RESULT;
+
+	wire [7:0] read_data;
+	wire busy_wait;
 	reg clk,rst;
-	processor simpleP(clk,Result, rst,INS);
+	cache cacheMem(clk,rst,read,write,DATA_ADDR,RESULT,read_data,busy_wait);
 
 	initial begin
 		clk = 0;
@@ -289,46 +545,46 @@ module testDM;
 		#20
 		rst = 0;
 		#20
-		INS = 32'b0000000000000110xxxxxxxx00101101;//loadi r6,X,45
-		$display("loadi 6,X,45");
+		DATA_ADDR = 8'b00011110;
+		read=1'b1;
+		write=1'b0;
 		#20
-		$display("After 1 CC	%b | %d\n",Result,Result);
-		INS = 32'b0000000000000011xxxxxxxx01000001;//loadi r3,X,65
-		$display("loadi 6,X,45");
-		#20
-		$display("After 1 CC	%b | %d\n",Result,Result);
-		INS = 32'b0000010100011001xxxxxxxx00000110;//store 25,X,r6
-		$display("store 25,X,6");
-		#2000
-		$display("After 100 CC	%b | %d\n",Result,Result);
-		INS = 32'b0000010100010000xxxxxxxx00000011;//store 16,X,r3
-		$display("store 16,X,3");
-		#2000
-		$display("After 100 CC	%b | %d\n",Result,Result );
-		INS = 32'b0000010000000111xxxxxxxx00011001;//load r7,X,25
-		$display("load 7,X,25");
-		#20
-		$display("After 1 CC	%b | %d",Result,Result);
-	 	#180
-		$display("After 10 CC	%b | %d",Result,Result);
-	 	#800
-		$display("After 50 CC	%b | %d",Result,Result);
-	 	#1000
-		$display("After 100 CC	%b | %d\n",Result,Result);
-	 	INS = 32'b0000010000001000xxxxxxxx00010000;//load r8,X,25
-		$display("load 8,X,25");
-		#20
-		$display("After 1 CC	%b | %d  (Should be 65, new value not loaded. need 100CC)",Result,Result);
-		#1980	
-		$display("After 100 CC	%b | %d\n",Result,Result);
-		INS = 32'b00000001000001010000011100001000;//add 5,7,8
-		$display("add 5,7,8");
-		#20
-		$display("After 1 CC	%b | %d\n",Result,Result);
-		INS = 32'b00001001000001010000100000000111;//sub 4,8,7
-		$display("sub 4,8,7");
-		#20
-		$display("After 1 CC	%b | %d\n",Result,Result);
+		$display("After 1 CC	%b | busywait= %b\n",read_data,busy_wait);
+		// $display("loadi 6,X,45");
+		// #20
+		// $display("After 1 CC	%b | %d\n",Result,Result);
+		// INS = 32'b0000010100011001xxxxxxxx00000110;//store 25,X,r6
+		// $display("store 25,X,6");
+		// #2000
+		// $display("After 100 CC	%b | %d\n",Result,Result);
+		// INS = 32'b0000010100010000xxxxxxxx00000011;//store 16,X,r3
+		// $display("store 16,X,3");
+		// #2000
+		// $display("After 100 CC	%b | %d\n",Result,Result );
+		// INS = 32'b0000010000000111xxxxxxxx00011001;//load r7,X,25
+		// $display("load 7,X,25");
+		// #20
+		// $display("After 1 CC	%b | %d",Result,Result);
+	 	// #180
+		// $display("After 10 CC	%b | %d",Result,Result);
+	 	// #800
+		// $display("After 50 CC	%b | %d",Result,Result);
+	 	// #1000
+		// $display("After 100 CC	%b | %d\n",Result,Result);
+	 	// INS = 32'b0000010000001000xxxxxxxx00010000;//load r8,X,25
+		// $display("load 8,X,25");
+		// #20
+		// $display("After 1 CC	%b | %d  (Should be 65, new value not loaded. need 100CC)",Result,Result);
+		// #1980	
+		// $display("After 100 CC	%b | %d\n",Result,Result);
+		// INS = 32'b00000001000001010000011100001000;//add 5,7,8
+		// $display("add 5,7,8");
+		// #20
+		// $display("After 1 CC	%b | %d\n",Result,Result);
+		// INS = 32'b00001001000001010000100000000111;//sub 4,8,7
+		// $display("sub 4,8,7");
+		// #20
+		// $display("After 1 CC	%b | %d\n",Result,Result);
 		
 		$finish;
 	end
