@@ -228,7 +228,7 @@ begin
 			end
         read_data = memory_array[address];
 		busy_wait <= 0;
-			// $display("requested read data= %b ",read_data);
+			 $display("requested read data= %b ",read_data);
 
 	end
 end
@@ -288,10 +288,9 @@ end
 
 always @( read , write , address, match,tag1,busy_wait,read_data_mem,hit,validBit)
 begin
-cacheRow <= memory_array[address[7:5]]; // get the cache row in the cache
+cacheRow = memory_array[address[7:5]]; // get the cache row in the cache
 
    hit= (!(tag1 ^ tag2) && validBit); // decide the hit (compare && valid bit) 
-//    $display("hit %b  tag1 %b tag2 %b, valid bit=%b result=%b",hit,tag1,tag2,cacheRow[21],tag1^tag2);
 
 	//write
     if (write && !read)	
@@ -346,7 +345,10 @@ cacheRow <= memory_array[address[7:5]]; // get the cache row in the cache
 
 	if(hit==1'b1) // hit when a read
      $display("its a hit %b" ,hit);
+	 
 	//  $display("content in cache %b" ,memory_array[address[7:5]]);
+	 		//    $display("hit %b  tag1 %b tag2 %b, valid bit=%b result=%b",hit,tag1,tag2,cacheRow[21],tag1^tag2);
+ 
 	 begin
        
 	 assign read_data = requiredBlock; // if its a hit and required block is sent out 
@@ -358,6 +360,10 @@ cacheRow <= memory_array[address[7:5]]; // get the cache row in the cache
 		//  cacheRow[21]=1;//set valid bit	
 	    //  cacheRow[19:16]<=address[4:1]; // new tag
 	     $display("its a miss");
+		//  $display("cacheRow %b ",cacheRow);
+		    cacheRow[19:16]=tag1;
+		//    $display("hit %b  tag1 %b tag2 %b, valid bit=%b result=%b",hit,tag1,tag2,cacheRow[21],tag1^tag2);
+ 
 		  if(cacheRow[20]==0) // block is not dirty so throw out the block
 		  begin
 	 	  address_mem<=address[7:1];// address for main memory
@@ -570,14 +576,27 @@ module testDM;
 		$display("After 1 CC2	%b | busywait= %b\n",read_data,busy_wait);
 		// $display("loadi 6,X,45");
 		// DATA_ADDR = 8'b10111100;
-		#20
-		$display("After 1 CC3	%b | busywait= %b\n",read_data,busy_wait);
-		// $display("loadi 6,X,45");
 		#2000
 		$display("After 1 CC4	%b | busywait= %b\n",read_data,busy_wait);
 		// $display("loadi 6,X,45");
 		#20
+		$display("After 1 CC5	%b | busywait= %b\n",read_data,busy_wait);
+		// $display("loadi 6,X,45");
+		DATA_ADDR = 8'b00011110;
+		#20
+		$display("After 1 CC6	%b | busywait= %b\n",read_data,busy_wait);
+		// $display("loadi 6,X,45");
+		DATA_ADDR = 8'b10011100;
+		#20
+		$display("After 1 CC6	%b | busywait= %b\n",read_data,busy_wait);
+		
+		 DATA_ADDR = 8'b11111110;
+		#2000
 		$display("After 1 CC4	%b | busywait= %b\n",read_data,busy_wait);
+		// $display("loadi 6,X,45");
+		
+		
+		
 		// $display("loadi 6,X,45");
 		// $display("loadi 6,X,45");
 		// $display("loadi 6,X,45");
