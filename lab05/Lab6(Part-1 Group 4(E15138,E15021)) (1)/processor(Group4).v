@@ -220,6 +220,7 @@ begin
 	end
     if (!write && read)
 	begin
+	$display("requesting a read");
 		busy_wait <= 1;
 	repeat(100)
 			begin
@@ -227,12 +228,14 @@ begin
 			end
         read_data = memory_array[address];
 		busy_wait <= 0;
+			// $display("requested read data= %b ",read_data);
+
 	end
 end
  
 endmodule
 
-module cache(clk,rst,read,write,address,write_data,read_data,busy_wait);
+module cache(clk,rst,read,write,address,write_data,read_data,busy_wait,read_mem,write_mem,address_mem,write_data_mem,read_data_mem);
 input           clk;
 input           rst;
 input           read;
@@ -240,12 +243,16 @@ input           write;
 input[7:0]      address;
 input[7:0]      write_data;
 output[7:0]     read_data;
-output			busy_wait;
+input			busy_wait;
 
 reg[7:0]     read_data;
-reg busy_wait=1'b0;
-wire busy_wait_w;
-assign busy_wait_w=busy_wait;
+
+reg [21:0] temp;
+
+input [15:0] read_data_mem; // input from memory
+output reg read_mem,write_mem;
+output reg [6:0] address_mem;
+output reg [15:0] write_data_mem;// input to memory
 integer  i;
 
 // Declare memory 256x8 bits 
@@ -254,24 +261,21 @@ reg [21:0] memory_array [255:0];
 reg [21:0] cacheRow;
 
 reg hit;
-wire match;
+reg match;
 wire [7:0] requiredBlock;
-wire [7:0] memWriteVal;
-reg [6:0] address_mem;
-reg [15:0] write_data_mem;
-wire [15:0] read_data_mem;
 
-reg read_mem=0;
-reg write_mem=0;
+wire [3:0] tag1,tag2;
+wire validBit;
+reg out;
+
+assign tag1=cacheRow[19:16];
+assign tag2=address[4:1];
+assign validBit=cacheRow[21];
 
 
-comparator my(cacheRow[19:16],address[4:1],match);
+
+// comparator my(cacheRow[19:16],address[4:1],match);
 fetchBlock fetch(cacheRow[15:0],address[0],requiredBlock);
-//  data_mem(clk,rst,read,write,address,write_data,read_data,busy_wait);	
-  data_mem mem(clk,rst,read_mem,write_mem,address_mem,write_data_mem,read_data_mem,busy_wait_w);	
-
-
-
 
 always @(posedge rst)
 begin
@@ -282,17 +286,18 @@ begin
     end
 end
 
-always @( read, write, address, write_data,match)
+always @( read , write , address, match,tag1,busy_wait,read_data_mem,hit,validBit)
 begin
-cacheRow = memory_array[address[7:5]]; // get the cache row in the cache
-   
-   hit= match && cacheRow[21]; // decide the hit (compare && valid bit) 
-	busy_wait <= 0;
+cacheRow <= memory_array[address[7:5]]; // get the cache row in the cache
+
+   hit= (!(tag1 ^ tag2) && validBit); // decide the hit (compare && valid bit) 
+//    $display("hit %b  tag1 %b tag2 %b, valid bit=%b result=%b",hit,tag1,tag2,cacheRow[21],tag1^tag2);
+
 	//write
     if (write && !read)	
 	begin
     
-		if(hit)
+		if(hit==1'b1)
 	 	 begin  
 	  		//should write to cache
        		cacheRow[20]<=1;	//set the dirty bit to one
@@ -307,7 +312,7 @@ cacheRow = memory_array[address[7:5]]; // get the cache row in the cache
 			end
 
 		end
-	else 
+	if(hit==1'b0) 
 	begin
      //its a miss for write
 
@@ -339,25 +344,49 @@ cacheRow = memory_array[address[7:5]]; // get the cache row in the cache
 	
 	begin
 
-	if(hit) // hit when a read
-     begin
+	if(hit==1'b1) // hit when a read
+     $display("its a hit %b" ,hit);
+	//  $display("content in cache %b" ,memory_array[address[7:5]]);
+	 begin
        
 	 assign read_data = requiredBlock; // if its a hit and required block is sent out 
      end
 
-	else
+	if(hit==1'b0)
 	begin
 	//do when its a miss  in a read
 		//  cacheRow[21]=1;//set valid bit	
-	    //  cacheRow[24:22]=address[7:5];// new index 
-		//  cacheRow[19:16]<=address[4:1]; // new tag
-	     
-		//   if(cacheRow[20]==0) // block is not dirty so throw out the block
-		//   begin
-	 	//   address_mem<=address[7:1];// address for main memory
-	    //  read_mem<=1; // enable write
+	    //  cacheRow[19:16]<=address[4:1]; // new tag
+	     $display("its a miss");
+		  if(cacheRow[20]==0) // block is not dirty so throw out the block
+		  begin
+	 	  address_mem<=address[7:1];// address for main memory
+	     assign read_mem=1'b1;
+		 assign write_mem=1'b0;
+		//  $display("read signal for memory %b",read_mem );
+		//   $display("fetched data %b",read_data_mem );
+			  
+			//   if(busy_wait==0)
+					//   if(busy_wait==1'b0)
+			//   begin
+			  temp[21]=(busy_wait==0) ? 1'b1:1'b0;//set valid bit	
+			//   end
+		
+			  temp[20]=0;//set dirty bit	
+	     	  temp[19:16]=address[4:1]; // new tag
+			//   $display("tag in cache %b ",tag1); 
+			
+			//    tag1<=address[4:1]; 
+			 temp[15:0]=read_data_mem;
+			//  $display("%b",temp);
+			 memory_array[address[7:5]]=temp;
+			//  $display("valid bit %b",temp[21]);
+			  cacheRow[21]=temp[21];
+//    $display("hit %b  tag1 %b tag2 %b, valid bit=%b result=%b",hit,tag1,tag2,validBit,tag1^tag2);
+
+			//   end
 		//  cacheRow[15:0] = read_data_mem; // new data
-		//   end
+		  end
 
 		//   else // block is dirty so wrte back to memory
 
@@ -376,27 +405,6 @@ end
 endmodule
 
 
-
-module comparator(cacheTag,insTag,match);
-input  [3:0] cacheTag;
-input  [3:0] insTag;
-output reg  match;
-
-always @(cacheTag) begin
-if(cacheTag ^ insTag ==4'b0000 )
- begin
- assign match=1'b1;
-//  $display("ctag, %b ,instTag %b , match %b",cacheTag,insTag,match);
-end
-
-else
-begin
- assign match=1'b0;
-//  $display("tags are not matching");
-end 
-end
-
-endmodule
 
 module fetchBlock(data,offset,out);
 input  [15:0] data;
@@ -452,8 +460,13 @@ module processor(clk,finalOut,rst,INS);
 
 
 
-//  data_mem(clk,rst,read,write,address,write_data,read_data,busy_wait);	
-	cache cacheMem(clk,rst,read,write,DATA_ADDR,RESULT,read_data,busy_wait);
+//  data_mem(clk,rst,read,write,address,write_data,read_data,busy_wait ,read_mem,write_mem,address_mem,write_data_mem,read_data_mem);	
+	// cache cacheMem(clk,rst,read,write,DATA_ADDR,RESULT,read_data,busy_wait,read_mem,write_mem,address_mem,write_data_mem,read_data_mem);
+
+
+	//  data_mem(clk,rst,read,write,address,write_data,read_data,busy_wait);	
+//    data_mem mem(clk,rst,read_mem,write_mem,address_mem,write_data_mem,read_data_mem,busy_wait_w);	
+
 endmodule
 
 
@@ -526,11 +539,14 @@ module testDM;
 	reg read,write;
 	reg [7:0] DATA_ADDR;
 	reg [7:0] RESULT;
-
+    
+	wire [15:0] read_data_mem,write_data_mem;
+    wire [6:0] address_mem;
 	wire [7:0] read_data;
-	wire busy_wait;
+	wire busy_wait,read_mem,write_mem;
 	reg clk,rst;
-	cache cacheMem(clk,rst,read,write,DATA_ADDR,RESULT,read_data,busy_wait);
+	cache cacheMem(clk,rst,read,write,DATA_ADDR,RESULT,read_data,busy_wait,read_mem,write_mem,address_mem,write_data_mem,read_data_mem);
+	data_mem mem(clk,rst,read_mem,write_mem,address_mem,write_data_mem,read_data_mem,busy_wait);	
 
 	initial begin
 		clk = 0;
@@ -544,12 +560,26 @@ module testDM;
 		rst = 1;
 		#20
 		rst = 0;
-		#20
 		DATA_ADDR = 8'b00011110;
-		read=1'b1;
+		 read=1'b1;
 		write=1'b0;
+		 #20
+		$display("After 1 CC1	%b | busywait= %b\n",read_data,busy_wait);
+		DATA_ADDR = 8'b10011100;
 		#20
-		$display("After 1 CC	%b | busywait= %b\n",read_data,busy_wait);
+		$display("After 1 CC2	%b | busywait= %b\n",read_data,busy_wait);
+		// $display("loadi 6,X,45");
+		// DATA_ADDR = 8'b10111100;
+		#20
+		$display("After 1 CC3	%b | busywait= %b\n",read_data,busy_wait);
+		// $display("loadi 6,X,45");
+		#2000
+		$display("After 1 CC4	%b | busywait= %b\n",read_data,busy_wait);
+		// $display("loadi 6,X,45");
+		#20
+		$display("After 1 CC4	%b | busywait= %b\n",read_data,busy_wait);
+		// $display("loadi 6,X,45");
+		// $display("loadi 6,X,45");
 		// $display("loadi 6,X,45");
 		// #20
 		// $display("After 1 CC	%b | %d\n",Result,Result);
