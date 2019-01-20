@@ -299,16 +299,21 @@ cacheRow = memory_array[address[7:5]]; // get the cache row in the cache
 		if(hit==1'b1)
 	 	 begin  
 	  		//should write to cache
-       		cacheRow[20]<=1;	//set the dirty bit to one
+			  temp=cacheRow;
+			  temp[21]=1;
+       		temp[20]=1;	//set the dirty bit to one
 			//write to cache block	
 			if(address[0]==0)
 			begin
-				cacheRow[7:0]<=write_data;
+				temp[7:0]=write_data;
 			end
 			else
 			begin
-				cacheRow[15:8]<=write_data;
+				temp[15:8]=write_data;
 			end
+			memory_array[address[7:5]]=temp;
+			cacheRow=temp;
+			// $display("content written is %b",memory_array[address[7:5]]);
 
 		end
 	if(hit==1'b0) 
@@ -592,6 +597,26 @@ module testDM;
 		
 		 DATA_ADDR = 8'b11111110;
 		#2000
+		$display("After 1 CC4	%b | busywait= %b\n",read_data,busy_wait);
+		// $display("loadi 6,X,45");
+		
+		 DATA_ADDR = 8'b11111110;
+		 read=0;
+		 write=1;
+		 RESULT=8'b11111111;
+		#20
+		$display("After 1 CC4	%b | busywait= %b\n",read_data,busy_wait);
+		// $display("loadi 6,X,45");
+		 DATA_ADDR = 8'b11111110;
+		 read=1;
+		 write=0;
+		//  RESULT=8'b11111111;
+		#20
+		$display("After 1 CC4	%b | busywait= %b\n",read_data,busy_wait);
+		// $display("loadi 6,X,45");
+				DATA_ADDR = 8'b00011110;
+
+		#20
 		$display("After 1 CC4	%b | busywait= %b\n",read_data,busy_wait);
 		// $display("loadi 6,X,45");
 		
