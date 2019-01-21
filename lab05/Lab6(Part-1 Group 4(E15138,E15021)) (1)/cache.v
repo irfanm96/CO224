@@ -337,6 +337,23 @@ cacheRow = memory_array[address[3:1]]; // get the cache row in the cache
 			  	memory_array[address[3:1]]=cacheRow;
 		 		end
 		  end
+
+
+		  if(cacheRow[20]==1)begin
+
+		    addressReg[3:1]=address[3:1];
+			addressReg[7:4]=cacheRow[19:16];
+			write_mem=1;
+			read_mem=0;
+			write_data_mem=cacheRow[15:0];
+
+			if(busy_wait==0)begin
+			cacheRow[20]=0;//set it as non dirty bit;
+			memory_array[address[3:1]]=cacheRow; 
+			end
+
+
+		  end
   
 
 		  
