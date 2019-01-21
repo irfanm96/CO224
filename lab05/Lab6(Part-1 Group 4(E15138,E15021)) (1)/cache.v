@@ -221,7 +221,7 @@ begin
 	end
     if (!write && read)
 	begin
-	$display("requesting a read");
+	$display("requesting a read at %b",address);
 		busy_wait <= 1;
 	repeat(100)
 			begin
@@ -279,7 +279,7 @@ begin
     if (rst)
     begin
         for (i=0;i<256; i=i+1)
-            memory_array[i] <= 24'b1011110101010100000011;
+            memory_array[i] <= 0;
     end
 end
 
@@ -317,6 +317,7 @@ cacheRow = memory_array[address[3:1]]; // get the cache row in the cache
 	//do when its a miss  in a write
 	 	//  $display("its a miss in write");
 		//  $display("tag 1 = %b",tag1); 
+		// $display("its a miss in write tag1=%b tag2=%b ",tag1,tag2);
 		  if(cacheRow[20]==0)begin 
 		   	address_mem=address[7:1];
 	     	write_mem= 0; // fetch from cache
@@ -335,12 +336,13 @@ cacheRow = memory_array[address[3:1]]; // get the cache row in the cache
 				 cacheRow[19:16]=tag1; 
 			  	cacheRow[21]=1;//valid bit 
 			  	memory_array[address[3:1]]=cacheRow;
+				  $display("cache row %b",memory_array[address[3:1]]);
 		 		end
 		  end
 
 
 		  if(cacheRow[20]==1)begin
-
+            
 		    addressReg[3:1]=address[3:1];
 			addressReg[7:4]=cacheRow[19:16];
 			write_mem=1;
@@ -349,6 +351,7 @@ cacheRow = memory_array[address[3:1]]; // get the cache row in the cache
 
 			if(busy_wait==0)begin
 			cacheRow[20]=0;//set it as non dirty bit;
+			cacheRow[19:16]=address[7:4];
 			memory_array[address[3:1]]=cacheRow; 
 			end
 
@@ -375,7 +378,6 @@ cacheRow = memory_array[address[3:1]]; // get the cache row in the cache
 	if(hit==1'b0)
 	begin
 	// do when its a miss  in a read 
-		//  $display("its a miss in read");
 		 if(cacheRow[20]==0) // block is not dirty so throw out the block
 		  begin
 	 	  address_mem=address[7:1];// address for main memory
@@ -453,6 +455,8 @@ module processor(clk,finalOut,rst,INS);
 	wire addSubMUX, imValueMUX,writeRegMux,waitWire;
 	wire busy_wait;
 	wire [7:0] read_data;
+	wire [6:0] address_mem;
+	wire [15:0] write_data_mem,read_data_mem;
 
 	// ControlUnit( INS, OUT1addr, OUT2addr, DESTINATION, IMMEDIATE, SELECT, twosCompMux, imValueMux, writeRegMux,read,write,DATA_ADDR );
 	//wires are placed correctly | checked
@@ -472,26 +476,141 @@ module processor(clk,finalOut,rst,INS);
 
 
 //  data_mem(clk,rst,read,write,address,write_data,read_data,busy_wait ,read_mem,write_mem,address_mem,write_data_mem,read_data_mem);	
-	// cache cacheMem(clk,rst,read,write,DATA_ADDR,RESULT,read_data,busy_wait,read_mem,write_mem,address_mem,write_data_mem,read_data_mem);
+	cache cacheMem(clk,rst,read,write,DATA_ADDR,RESULT,read_data,busy_wait,read_mem,write_mem,address_mem,write_data_mem,read_data_mem);
 
 
 	//  data_mem(clk,rst,read,write,address,write_data,read_data,busy_wait);	
-//    data_mem mem(clk,rst,read_mem,write_mem,address_mem,write_data_mem,read_data_mem,busy_wait_w);	
+   data_mem mem(clk,rst,read_mem,write_mem,address_mem,write_data_mem,read_data_mem,busy_wait);	
 
 endmodule
-module testCache;
-	reg [31:0] INS;
-	reg read,write;
-	reg [7:0] DATA_ADDR;
-	reg [7:0] write_data;
+// module testCache;
+// 	reg [31:0] INS;
+// 	reg read,write;
+// 	reg [7:0] DATA_ADDR;
+// 	reg [7:0] write_data;
     
-	wire [15:0] read_data_mem,write_data_mem;
-    wire [6:0] address_mem;
-	wire [7:0] read_data;
-	wire busy_wait,read_mem,write_mem;
+// 	wire [15:0] read_data_mem,write_data_mem;
+//     wire [6:0] address_mem;
+// 	wire [7:0] read_data;
+// 	wire busy_wait,read_mem,write_mem;
+// 	reg clk,rst;
+// 	cache cacheMem(clk,rst,read,write,DATA_ADDR,write_data,read_data,busy_wait,read_mem,write_mem,address_mem,write_data_mem,read_data_mem);
+// 	data_mem mem(clk,rst,read_mem,write_mem,address_mem,write_data_mem,read_data_mem,busy_wait);	
+
+// 	initial begin
+// 		clk = 0;
+// 		forever #10 clk = ~clk;
+// 	end
+
+// 	initial begin
+// 		$display("***********************************************************************");
+// 		$display("for testing purpose cache and data memory are  populated with dummy data");
+// 		$display("\nall blocks in cache will initially have 01010101 00000011");		
+// 		$display("\nall blocks in memory will initially have 00000000 00000000\n");
+// 		$display("offset 0 is considered as least significant 8 bits [7:0] and offset 1 [15:18]\n");
+// 		$display("***********************************************************************\n");
+// 		rst = 0;
+// 		#20
+// 		rst = 1;
+// 		#20
+// 		rst = 0;
+// 		DATA_ADDR = 8'b11110000;// tag=1111  index=000 offset=0
+// 		 read=1'b1;// read signal for cache
+// 		write=1'b0;
+// 		 #20
+// 		$display("After 1 CC	%b at offset %b | should be a hit |busywait= %b\n",read_data,DATA_ADDR[0],busy_wait);
+// 		DATA_ADDR = 8'b11110001;// tag=1111  index=000 offset=1
+// 		 #20
+// 		$display("After 1 CC	%b at offset %b | should be a hit |busywait= %b\n",read_data,DATA_ADDR[0],busy_wait);
+		
+// 		DATA_ADDR = 8'b11101000; // tag=1110  index=100 offset=0
+// 		#20
+// 		$display("After 1 CC	%b | should be a miss |busywait= %b\n",read_data,busy_wait);
+// 		#2000
+// 		$display("After 100 CC	%b | should be 00000000 (content in memory is fetched)|busywait= %b\n",read_data,busy_wait);
+// 		#20
+// 		$display("After 1 CC %b | should be a hit (check the same address for a read again) |busywait= %b\n",read_data,busy_wait);
+// 		 DATA_ADDR = 8'b11111110; // tag=1111 index=111 offset=0 
+// 		 read=0;
+// 		 write=1;
+// 		 write_data=8'b11111111; //data do be written
+// 		#20
+// 		$display("test for a hit in write with dirty bit=0");
+// 		$display("After 1 CC      %b | should be a hit |busywait= %b\n",read_data,busy_wait);
+// 		 read=1;
+// 		 write=0;
+// 		#20
+// 		$display("After 1 CC	%b | should be a hit (check the written data again) |busywait= %b\n",read_data,busy_wait);
+// 		DATA_ADDR = 8'b10110000; // tag=1011 index=000 offset=0 
+//         write_data=8'b00000010; // data to be written
+// 		read=0;
+// 		write=1; 
+// 		#20
+// 		$display("test for a miss in write with dirty bit=0 ");
+// 		$display("still not written to memory busy wait should be=1");
+// 		$display("After 1 CC	%b | should be a written only in cache  |busywait= %b\n",read_data,busy_wait);
+// 		#2020
+// 		$display("after write back to memory busy wait should be=0");
+// 		$display("After 1 CC	%b | should be a written both cache and memory   |busywait= %b\n",read_data,busy_wait);
+// 	  	write=1;
+// 		read=0;
+// 	    DATA_ADDR=8'b11110010;
+// 		write_data=8'b10100000;
+// 		#20
+// 		$display("After 1 CC	%b | should be a written to cache  |busywait= %b\n",read_data,busy_wait);
+// 	    DATA_ADDR=8'b10110010;
+// 		write=0;
+// 		read=1;
+// 		#20
+// 		$display("After 1 CC	%b | should be a miss  |busywait= %b\n",read_data,busy_wait);
+	    
+// 		#2000
+// 		$display("After 100 CC	%b | should be a miss  |busywait= %b\n",read_data,busy_wait);
+	    
+// 		#2000
+// 		$display("After 100 CC	%b | should be a hit  |busywait= %b\n",read_data,busy_wait);
+
+// 	     DATA_ADDR=8'b10110011;
+// 		write=0;
+// 		read=1;
+// 		#20
+// 		$display("After 1 CC	%b | should be a hit  |busywait= %b\n",read_data,busy_wait);
+	   
+// 	     DATA_ADDR=8'b10110010;
+// 		 write_data=8'b00000001;
+// 		write=1;
+// 		read=0;
+// 		#20
+// 		$display("After 1 CC	%b | should be a hit  |busywait= %b\n",read_data,busy_wait);
+	   
+// 	     DATA_ADDR=8'b10010010;
+// 		 write_data=8'b00000001;
+// 		write=1;
+// 		read=0;
+// 		#20
+// 		$display("After 1 CC	%b | should be a hit  |busywait= %b\n",read_data,busy_wait);
+	   
+// 		#2000
+// 		$display("After 1 CC	%b | should be a hit  |busywait= %b\n",read_data,busy_wait);
+	   
+	   
+// 		#2000
+// 		$display("After 1 CC	%b | should be a hit  |busywait= %b\n",read_data,busy_wait);
+	   
+	
+// 	$finish;
+// 	end
+
+// endmodule
+
+
+module testDM;
+	reg [31:0] Read_Addr;
+	wire [7:0] Result;
+	//wire Result;
 	reg clk,rst;
-	cache cacheMem(clk,rst,read,write,DATA_ADDR,write_data,read_data,busy_wait,read_mem,write_mem,address_mem,write_data_mem,read_data_mem);
-	data_mem mem(clk,rst,read_mem,write_mem,address_mem,write_data_mem,read_data_mem,busy_wait);	
+
+	processor simpleP( clk, Result, rst,Read_Addr);
 
 	initial begin
 		clk = 0;
@@ -499,102 +618,72 @@ module testCache;
 	end
 
 	initial begin
-		$display("***********************************************************************");
-		$display("for testing purpose cache and data memory are  populated with dummy data");
-		$display("\nall blocks in cache will initially have 01010101 00000011");		
-		$display("\nall blocks in memory will initially have 00000000 00000000\n");
-		$display("offset 0 is considered as least significant 8 bits [7:0] and offset 1 [15:18]\n");
-		$display("***********************************************************************\n");
+
+		
+		$display("\nPrinting The results of MUX that is before register file( output from ALU OR DM )\n");
 		rst = 0;
 		#20
 		rst = 1;
 		#20
 		rst = 0;
-		DATA_ADDR = 8'b11110000;// tag=1111  index=000 offset=0
-		 read=1'b1;// read signal for cache
-		write=1'b0;
-		 #20
-		$display("After 1 CC	%b at offset %b | should be a hit |busywait= %b\n",read_data,DATA_ADDR[0],busy_wait);
-		DATA_ADDR = 8'b11110001;// tag=1111  index=000 offset=1
-		 #20
-		$display("After 1 CC	%b at offset %b | should be a hit |busywait= %b\n",read_data,DATA_ADDR[0],busy_wait);
+		#20
 		
-		DATA_ADDR = 8'b11101000; // tag=1110  index=100 offset=0
+		Read_Addr = 32'b0000000000000110xxxxxxxx00101101;//loadi r6,X,45
+		$display("loadi 6,X,45");
 		#20
-		$display("After 1 CC	%b | should be a miss |busywait= %b\n",read_data,busy_wait);
-		#2000
-		$display("After 100 CC	%b | should be 00000000 (content in memory is fetched)|busywait= %b\n",read_data,busy_wait);
+		$display("After 1 CC	%b | %d\n",Result,Result);
+		Read_Addr = 32'b0000000000000011xxxxxxxx01000001;//loadi r3,X,65
+		$display("loadi 6,X,45");
 		#20
-		$display("After 1 CC %b | should be a hit (check the same address for a read again) |busywait= %b\n",read_data,busy_wait);
-		 DATA_ADDR = 8'b11111110; // tag=1111 index=111 offset=0 
-		 read=0;
-		 write=1;
-		 write_data=8'b11111111; //data do be written
-		#20
-		$display("test for a hit in write with dirty bit=0");
-		$display("After 1 CC      %b | should be a hit |busywait= %b\n",read_data,busy_wait);
-		 read=1;
-		 write=0;
-		#20
-		$display("After 1 CC	%b | should be a hit (check the written data again) |busywait= %b\n",read_data,busy_wait);
-		DATA_ADDR = 8'b10110000; // tag=1011 index=000 offset=0 
-        write_data=8'b00000010; // data to be written
-		read=0;
-		write=1; 
-		#20
-		$display("test for a miss in write with dirty bit=0 ");
-		$display("still not written to memory busy wait should be=1");
-		$display("After 1 CC	%b | should be a written only in cache  |busywait= %b\n",read_data,busy_wait);
-		#2020
-		$display("after write back to memory busy wait should be=0");
-		$display("After 1 CC	%b | should be a written both cache and memory   |busywait= %b\n",read_data,busy_wait);
-	  	write=1;
-		read=0;
-	    DATA_ADDR=8'b11110010;
-		write_data=8'b10100000;
-		#20
-		$display("After 1 CC	%b | should be a written to cache  |busywait= %b\n",read_data,busy_wait);
-	    DATA_ADDR=8'b10110010;
-		write=0;
-		read=1;
-		#20
-		$display("After 1 CC	%b | should be a miss  |busywait= %b\n",read_data,busy_wait);
-	    
-		#2000
-		$display("After 100 CC	%b | should be a miss  |busywait= %b\n",read_data,busy_wait);
-	    
-		#2000
-		$display("After 100 CC	%b | should be a hit  |busywait= %b\n",read_data,busy_wait);
+		$display("After 1 CC	%b | %d\n",Result,Result);
 
-	     DATA_ADDR=8'b10110011;
-		write=0;
-		read=1;
+		Read_Addr = 32'b0000010100011001xxxxxxxx00000110;//store 25,X,r6
+		$display("store 25,X,6");
+		#2020
+		$display("After 100 CC	%b | %d\n",Result,Result);
+		Read_Addr = 32'b0000010100011000xxxxxxxx00000011;//store 24,X,r3
+		$display("store 24,X,3");
 		#20
-		$display("After 1 CC	%b | should be a hit  |busywait= %b\n",read_data,busy_wait);
-	   
-	     DATA_ADDR=8'b10110010;
-		 write_data=8'b00000001;
-		write=1;
-		read=0;
+		$display("After 1 CC	%b | %d\n",Result,Result );
+		
+		Read_Addr = 32'b0000010000000111xxxxxxxx00011001;//load r7,X,25
+		$display("load 7,X,25");
 		#20
-		$display("After 1 CC	%b | should be a hit  |busywait= %b\n",read_data,busy_wait);
-	   
-	     DATA_ADDR=8'b10010010;
-		 write_data=8'b00000001;
-		write=1;
-		read=0;
-		#20
-		$display("After 1 CC	%b | should be a hit  |busywait= %b\n",read_data,busy_wait);
-	   
+		$display("After 1 CC	%b | %d (Earliar it took 100CC )\n",Result,Result);
+		Read_Addr = 32'b0000010000001000xxxxxxxx00011000;//load r8,X,24
+		$display("load 8,X,24");
 		#2000
-		$display("After 1 CC	%b | should be a hit  |busywait= %b\n",read_data,busy_wait);
-	   
-	   
+		$display("After 1 CC	%b | %d (Earliar it took 100CC )\n",Result,Result);
+		
+		Read_Addr = 32'b0000000000000011xxxxxxxx01011111;//loadi r3,X,95
+		$display("loadi 3,X,95");
+		#20
+		$display("After 1 CC	%b | %d\n",Result,Result);
+		
+		Read_Addr = 32'b0000010100111000xxxxxxxx00000011;//store 56,X,r3
+		$display("store 56,X,3");
+		#20
+		$display("After 1 CC	%b | %d (It will be a miss)",Result,Result);
+		#1980
+		$display("After 100 CC	%b | %d (takes 100CC to Write-Back)\n",Result,Result);
 		#2000
-		$display("After 1 CC	%b | should be a hit  |busywait= %b\n",read_data,busy_wait);
-	   
-	
-	$finish;
+		$display("After 200 CC	%b | %d (takes 100CC to Fetch from DM)\n",Result,Result);
+		
+		Read_Addr = 32'b0000010000001000xxxxxxxx00111000;//load r8,X,56
+		$display("load 8,X,56");
+		#20
+		$display("After 1 CC	%b | %d (Its a hit takes 1CC)\n",Result,Result);
+		
+		Read_Addr = 32'b00000001000001010000011100001000;//add 5,7,8
+		$display("add 5,7,8");
+		#20
+		$display("After 1 CC	%b | %d\n",Result,Result);
+		Read_Addr = 32'b00001001000001010000100000000111;//sub 4,8,7
+		$display("sub 4,8,7");
+		#20
+		$display("After 1 CC	%b | %d\n",Result,Result);
+		
+		$finish;
 	end
 
 endmodule
