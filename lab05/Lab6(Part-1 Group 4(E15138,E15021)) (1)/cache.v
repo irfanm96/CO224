@@ -572,6 +572,27 @@ module testCache;
 		#20
 		$display("After 1 CC	%b | should be a hit  |busywait= %b\n",read_data,busy_wait);
 	   
+	     DATA_ADDR=8'b10110010;
+		 write_data=8'b00000001;
+		write=1;
+		read=0;
+		#20
+		$display("After 1 CC	%b | should be a hit  |busywait= %b\n",read_data,busy_wait);
+	   
+	     DATA_ADDR=8'b10010010;
+		 write_data=8'b00000001;
+		write=1;
+		read=0;
+		#20
+		$display("After 1 CC	%b | should be a hit  |busywait= %b\n",read_data,busy_wait);
+	   
+		#2000
+		$display("After 1 CC	%b | should be a hit  |busywait= %b\n",read_data,busy_wait);
+	   
+	   
+		#2000
+		$display("After 1 CC	%b | should be a hit  |busywait= %b\n",read_data,busy_wait);
+	   
 	
 	$finish;
 	end
